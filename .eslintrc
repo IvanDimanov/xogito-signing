@@ -1,0 +1,22 @@
+{
+  "extends": ["eslint:recommended", "google"],
+
+  "env": {
+    "node": true,
+    "jasmine": true,
+    "es6": true
+  },
+
+  "parserOptions": {
+    "ecmaVersion": 2017
+  },
+
+  "rules": {
+    "no-invalid-this": 0,
+    "require-jsdoc": 0,
+    "max-len": [2, 130, 2, {
+      "ignoreUrls": true,
+      "ignoreComments": false
+    }]
+  }
+}
