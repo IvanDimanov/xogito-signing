@@ -14,3 +14,20 @@ npx xogito-signing -u john.doe -p P@22w0rd
 ```
 npx xogito-signing -u john.doe -p P@22w0rd -a sign-out
 ```
+
+## Help
+```
+npx xogito-signing --help
+```
+```
+Options:
+  -u, --user      User name                                  [string] [required]
+  -p, --password  User password                              [string] [required]
+  -a, --action    Singing action
+                           [choices: "sign-in", "sign-out"] [default: "sign-in"]
+  -h, --help      Show help                                            [boolean]
+  -v, --version   Show version number                                  [boolean]
+
+Examples:
+  xogito-signing --user john.doe --password P@22w0rd
+```
