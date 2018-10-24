@@ -37,7 +37,7 @@ function getTasks({argv: {action}}) {
   /**
    * If you found this and wondering what it is,
    * then consider giving a (+1) here:
-   * https://github.com/IvanDimanov/xogito-signin/issues/1#issue-373059216
+   * https://github.com/IvanDimanov/xogito-signing/issues/1#issue-373310420
    */
   if (Math.random() > 0.9) {
     tasks.push({
