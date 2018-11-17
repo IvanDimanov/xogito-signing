@@ -1,13 +1,19 @@
 const Listr = require('listr');
+const puppeteer = require('puppeteer');
 const colors = require('colors/safe');
 
 const delay = require('../utils/delay');
 const timeOfDay = require('../utils/timeOfDay');
 const {validateUser, validatePassword, validateAction} = require('../utils/validators');
 
+const {DOMAIN} = require('./constants');
+
 const login = require('./login');
 const signIn = require('./signIn');
 const signOut = require('./signOut');
+
+/* It is in this scope so we can `browser.close()` at any time */
+let browser;
 
 /**
  * Generate the list ot tasks that needs to be executed
@@ -26,10 +32,15 @@ function getTasks({argv: {action}}) {
     },
 
     {
-      title: 'Login to WebHR',
+      title: 'Login to PeopleHR',
       task: async (ctx) => {
-        const {user, password} = ctx.argv;
-        ctx.loginResponse = await login(user, password);
+        ctx.browser = await puppeteer.launch();
+        ctx.page = await ctx.browser.newPage();
+        await ctx.page.goto(DOMAIN, {waitUntil: 'networkidle2'});
+
+        /* Expose globally so we can `browser.close()` at any time */
+        browser = ctx.browser;
+        await login(ctx);
       },
     },
   ];
@@ -50,19 +61,15 @@ function getTasks({argv: {action}}) {
 
   if (action === 'sign-in') {
     tasks.push({
-      title: 'Sign-in to WebHR',
-      task: async ({argv: {user}, loginResponse: {headers}}) => {
-        await signIn(user, headers);
-      },
+      title: 'Sign-in to PeopleHR',
+      task: signIn,
     });
   }
 
   if (action === 'sign-out') {
     tasks.push({
-      title: 'Sign-out from WebHR',
-      task: async ({argv: {user}, loginResponse: {headers}}) => {
-        await signOut(user, headers);
-      },
+      title: 'Sign-out from PeopleHR',
+      task: signOut,
     });
   }
 
@@ -75,8 +82,10 @@ module.exports = (ctx = {}) => getTasks(ctx)
 
   .then(() => {
     process.stdout.write(`\n${colors.green('Done')} - have a wonderful ${timeOfDay()}!\n`);
+    browser.close();
   })
 
   .catch((error) => {
     process.stderr.write(`\n${colors.red('Error')} - ${error.message}\n`);
+    browser.close();
   });

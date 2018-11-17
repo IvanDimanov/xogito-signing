@@ -1,41 +1,61 @@
-const axios = require('axios');
+/* global document */
+/* The `document` var is provided via the `page.evaluate()` */
 
-const errorResponse = '<script>window.location.href="../login/?action=logout";</script>';
+const delay = require('../utils/delay');
 
-const signIn = async (user, headers = {}) => {
-  const cookie = Array.isArray(headers['set-cookie']) ? headers['set-cookie'].join('; ') : '';
-  const isoDate = new Date().toISOString();
-  const formattedDate = isoDate.split('T')[0];
+const {DOMAIN, TIME_SLOTS_DELAY, MODAL_OPEN_ANIMATION_DELAY} = require('./constants');
 
-  const response = await axios({
-    method: 'get',
-    url: 'https://xogito.webhr.co/hr/pages',
+const signIn = async ({argv: {user, password}, browser, page}) => {
+  await page.goto(`${DOMAIN}/Pages/LeftSegment/MyDetails.aspx`, {waitUntil: 'networkidle2'});
 
-    headers: {
-      cookie,
-    },
+  const now = new Date();
+  const todayTimeSheetSelector = `[data-date="${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}"]`;
 
-    params: {
-      page: 'Timesheet',
-      type: 'Attendance',
-      type2: 'ManualAttendance',
-      at: 0,
-      dt: formattedDate,
-      u: user,
-    },
-  });
+  /* Open the today's Time sheet modal */
+  await delay(TIME_SLOTS_DELAY); // The time sheet page takes some time to load all time slots
+  await page.waitForSelector(todayTimeSheetSelector);
+  await page.click(todayTimeSheetSelector);
+  await delay(MODAL_OPEN_ANIMATION_DELAY); // Wait for animation
 
-  /**
-   * WebHR sucks and always response with status code 200
-   * even when there's an error in the BackEnd.
-   * So we need to track if the response has this key 'errorResponse' word in it.
-   */
-  const responseData = String(response.data).trim().toLocaleLowerCase();
-  if (responseData === errorResponse) {
-    throw new Error('Sorry, unable to sign-in');
+  /* Fill in Hours */
+  const inHoursSelector = 'input#txtTimeInHH1';
+  await page.waitForSelector(inHoursSelector);
+  await page.evaluate((inHoursSelector) => {
+    document.querySelector(inHoursSelector).value = new Date().getHours();
+  }, inHoursSelector);
+
+  /* Fill in Minutes */
+  const inMinutesSelector = 'input#txtTimeInMM1';
+  await page.waitForSelector(inMinutesSelector);
+  await page.evaluate((inMinutesSelector) => {
+    document.querySelector(inMinutesSelector).value = new Date().getMinutes();
+  }, inMinutesSelector);
+
+  /* Submit form */
+  await page.waitForSelector('#aSave');
+  await page.click('#aSave');
+
+  /* Check if login went with any issues */
+  try {
+    const errorSelector = '#errorinline';
+    await page.waitForSelector(errorSelector, {timeout: 3000});
+
+    const errorMessage = await page.evaluate((errorSelector) => {
+      const error = document.querySelector(errorSelector);
+      return error.textContent.trim();
+    }, errorSelector);
+
+    throw new Error(errorMessage);
+  } catch (error) {
+    /**
+     * If the `page.waitForSelector()` made a `TimeoutError`
+     * then there are no errors on the page
+     */
+    if (error.name !== 'TimeoutError') {
+      await browser.close();
+      throw error;
+    }
   }
-
-  return response;
 };
 
 module.exports = signIn;
