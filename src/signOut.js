@@ -1,60 +1,46 @@
-/* global document */
-/* The `document` var is provided via the `page.evaluate()` */
+/* global PEOPLEWEB, EMPLOYEE_PLANNER_API */
+/* These variables are provided via the `page.evaluate()` */
 
-const delay = require('../utils/delay');
+const getTimeSheetProps = require('./getTimeSheetProps');
+const setField = require('../utils/setField');
 
-const {DOMAIN, TIME_SLOTS_DELAY, MODAL_OPEN_ANIMATION_DELAY} = require('./constants');
+const signOut = async ({browser, page}) => {
+  const props = await getTimeSheetProps(page);
 
-const signOut = async ({argv: {user, password}, browser, page}) => {
-  await page.goto(`${DOMAIN}/Pages/LeftSegment/MyDetails.aspx`, {waitUntil: 'networkidle2'});
-
+  /* Set the time when the user signed-out */
   const now = new Date();
-  const todayTimeSheetSelector = `[data-date="${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}"]`;
+  setField(props, 'txtTimeOutHH1', now.getHours());
+  setField(props, 'txtTimeOutMM1', now.getMinutes());
 
-  /* Open the today's Time sheet modal */
-  await delay(TIME_SLOTS_DELAY); // The time sheet page takes some time to load all time slots
-  await page.waitForSelector(todayTimeSheetSelector);
-  await page.click(todayTimeSheetSelector);
-  await delay(MODAL_OPEN_ANIMATION_DELAY); // Wait for animation
+  /* Keep the time when the user signed-in */
+  const timeIn = (props.breakList[0] || '').split(':');
+  setField(props, 'txtTimeInHH1', timeIn[0]);
+  setField(props, 'txtTimeInMM1', timeIn[1]);
 
-  /* Fill out Hours */
-  const outHoursSelector = 'input#txtTimeOutHH1';
-  await page.waitForSelector(outHoursSelector);
-  await page.evaluate((outHoursSelector) => {
-    document.querySelector(outHoursSelector).value = new Date().getHours();
-  }, outHoursSelector);
+  /* Calculate to total time worked */
+  const dateSignedIn = new Date(now.getFullYear(), now.getMonth(), now.getDate(), timeIn[0], timeIn[1], 0);
+  const todayTotalMilliseconds = now.getTime() - dateSignedIn.getTime();
+  const hdftodayTotalTime = Math.ceil(todayTotalMilliseconds / (60 * 1000));
+  setField(props, 'hdftodayTotalTime', hdftodayTotalTime);
 
-  /* Fill out Minutes */
-  const outMinutesSelector = 'input#txtTimeOutMM1';
-  await page.waitForSelector(outMinutesSelector);
-  await page.evaluate((outMinutesSelector) => {
-    document.querySelector(outMinutesSelector).value = new Date().getMinutes();
-  }, outMinutesSelector);
+  const hdfthisWeekTotalTime = props.fields.find(({name}) => name === 'hdfthisWeekTotalTime') || {};
+  hdfthisWeekTotalTime.value = parseInt(hdfthisWeekTotalTime.value, 10) + hdftodayTotalTime;
 
-  /* Submit form */
-  await page.waitForSelector('#aSave');
-  await page.click('#aSave');
+  const hdfthisMonthTotalTime = props.fields.find(({name}) => name === 'hdfthisMonthTotalTime') || {};
+  hdfthisMonthTotalTime.value = parseInt(hdfthisMonthTotalTime.value, 10) + hdftodayTotalTime;
 
-  /* Check if login went with any issues */
-  try {
-    const errorSelector = '#errorinline';
-    await page.waitForSelector(errorSelector, {timeout: 3000});
+  /* Attempt to save the time sheet */
+  const {Status} = await page.evaluate(({fields, IsPreviousTimesheetCompleted, IsNextTimesheetCompleted}) => {
+    return PEOPLEWEB.requestHandler.json('Save_BreakTimesheet', {
+      Form: JSON.stringify(fields),
+      IsPreviousTimesheetCompleted,
+      IsNextTimesheetCompleted,
+    }, function() {},
+    EMPLOYEE_PLANNER_API);
+  }, props);
 
-    const errorMessage = await page.evaluate((errorSelector) => {
-      const error = document.querySelector(errorSelector);
-      return error.textContent.trim();
-    }, errorSelector);
-
-    throw new Error(errorMessage);
-  } catch (error) {
-    /**
-     * If the `page.waitForSelector()` made a `TimeoutError`
-     * then there are no errors on the page
-     */
-    if (error.name !== 'TimeoutError') {
-      await browser.close();
-      throw error;
-    }
+  if (Status) {
+    throw new Error('Unable to Sign-out');
   }
 };
 
