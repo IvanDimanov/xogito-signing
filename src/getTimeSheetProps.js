@@ -2,6 +2,8 @@
 /* These variables are provided via the `page.evaluate()` */
 const cheerio = require('cheerio');
 
+const delay = require('../utils/delay')
+
 const {DOMAIN} = require('./constants');
 
 const getFields = async (page) => {
@@ -9,9 +11,12 @@ const getFields = async (page) => {
 
   const {Markup, Data} = await page.evaluate(() => {
     const today = new Date();
+    const month = today.getMonth() + 1;
+    const date = today.getDate();
+
     return PEOPLEWEB.requestHandler.json(
         'Get_Modal_Add_Edit_Timesheet',
-        {TimesheetDate: `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`},
+        {TimesheetDate: `${today.getFullYear()}-${month > 9 ? month : '0' + month}-${date > 9 ? date : '0' + date}`},
         function() {},
         EMPLOYEE_PLANNER_API,
     );
