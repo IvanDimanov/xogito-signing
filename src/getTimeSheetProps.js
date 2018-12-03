@@ -2,8 +2,6 @@
 /* These variables are provided via the `page.evaluate()` */
 const cheerio = require('cheerio');
 
-const delay = require('../utils/delay')
-
 const {DOMAIN} = require('./constants');
 
 const getFields = async (page) => {
