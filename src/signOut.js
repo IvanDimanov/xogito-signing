@@ -13,7 +13,9 @@ const signOut = async ({browser, page}) => {
   setField(props, 'txtTimeOutMM1', now.getMinutes());
 
   /* Keep the time when the user signed-in */
-  const timeIn = (props.breakList[0] || '').split(':');
+  const timeRecords = (props.breakList[0] || '').split(',');
+  const timeIn = timeRecords[0].split(':');
+
   setField(props, 'txtTimeInHH1', timeIn[0]);
   setField(props, 'txtTimeInMM1', timeIn[1]);
 
