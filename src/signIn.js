@@ -18,6 +18,7 @@ const signIn = async ({browser, page}) => {
       Form: JSON.stringify(fields),
       IsPreviousTimesheetCompleted,
       IsNextTimesheetCompleted,
+      ServerTime: '',
     }, function() {},
     EMPLOYEE_PLANNER_API);
   }, props);
